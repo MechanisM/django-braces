@@ -7,6 +7,7 @@ from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.utils.decorators import method_decorator
 from django.utils.http import urlquote
 from django.views.generic import CreateView
+from django.views.generic.base import TemplateResponseMixin
 
 
 class CreateAndRedirectToEditView(CreateView):
@@ -154,3 +155,33 @@ class SetHeadlineMixin(object):
                 u"%(cls)s.get_headline()." % {"cls": self.__class__.__name__
             })
         return self.headline
+        
+        
+class PJAXResponseMixin(TemplateResponseMixin):
+
+    pjax_template_name = None
+
+    def get_template_names(self):
+        names = super(PJAXResponseMixin, self).get_template_names()
+        if self.request.META.get('HTTP_X_PJAX', False):
+            if self.pjax_template_name:
+                names = [self.pjax_template_name]
+            else:
+                names = _pjaxify_template_var(names)
+        return names
+        
+        
+def _pjaxify_template_var(template_var):
+    if isinstance(template_var, (list, tuple)):
+        template_var = type(template_var)(_pjaxify_template_name(name) for name in template_var)
+    elif isinstance(template_var, basestring):
+        template_var = _pjaxify_template_name(template_var)
+    return template_var
+
+
+def _pjaxify_template_name(name):
+    if "." in name:
+        name = "%s-pjax.%s" % tuple(name.rsplit('.', 1))
+    else:
+        name += "-pjax"
+    return name
